@@ -25,44 +25,63 @@ def extract_attribute_value(value_element):
         return value_element.text.strip()
     
     
-def extract_dimension_values_format1(value_element):
-    values = re.findall(r"([\w\s]+)\s+\(([c\w]+)\)\s+([\d.]+)", value_element.text)
-    dimension_dict = {name.strip(): value for name, _, value in values}
-    return dimension_dict
+# def extract_dimension_values_format1(value_element):
+#     values = re.findall(r"([\w\s]+)\s+\(([c\w]+)\)\s+([\d.]+)", value_element.text)
+#     dimension_dict = {name.strip(): value for name, _, value in values}
+#     return dimension_dict
 
 
-def extract_dimension_values_format2_3(ul_element):
-    dimension_dict = {}
-    ul_items = ul_element.find_all('li', class_='col-md-6 key')
-    for ul_item in ul_items:
-        parts = ul_item.text.split(':')
-        if len(parts) == 2:
-            name = parts[0].strip()
-            value = parts[1].strip()
-            dimension_dict[name] = value
-    return dimension_dict
+# def extract_dimension_values_format2_3(ul_element):
+#     dimension_dict = {}
+#     ul_items = ul_element.find_all('li', class_='col-md-6 key')
+#     for ul_item in ul_items:
+#         parts = ul_item.text.split(':')
+#         if len(parts) == 2:
+#             name = parts[0].strip()
+#             value = parts[1].strip()
+#             dimension_dict[name] = value
+#     return dimension_dict
 
 
-def extract_dimension_values(value_element):
-    div_with_ul = value_element.find('div', {'class': 'row'})
-    ul_element = value_element.find('ul')
+# def extract_dimension_values(value_element):
+#     div_with_ul = value_element.find('div', {'class': 'row'})
+#     ul_element = value_element.find('ul')
 
-    if div_with_ul and ul_element:
-        return extract_dimension_values_format2_3(ul_element)
-    elif ul_element:
-        if ul_element.find('li', class_='col-md-6 key'):
-            return extract_dimension_values_format2_3(ul_element)
-        else:
-            return extract_dimension_values_format1(value_element)
-    else:
-        return extract_dimension_values_format1(value_element)
+#     if div_with_ul and ul_element:
+#         return extract_dimension_values_format2_3(ul_element)
+#     elif ul_element:
+#         if ul_element.find('li', class_='col-md-6 key'):
+#             return extract_dimension_values_format2_3(ul_element)
+#         else:
+#             return extract_dimension_values_format1(value_element)
+#     else:
+#         return extract_dimension_values_format1(value_element)
 
 
-def extract_feature_value(value_element):
-    if value_element.name == 'ul':
-        return [item.get_text(strip=True) for item in value_element.find_all('li')]
-    else:
-        return value_element.text.strip()
+# def extract_feature_value(value_element):
+#     if value_element.name == 'ul':
+#         return [item.get_text(strip=True) for item in value_element.find_all('li')]
+#     else:
+#         return value_element.text.strip()
+    
+    
+def extract_features(value_element):
+    features = []
+    ul_element = value_element.find('ul', role='table')
+    if ul_element:
+        li_elements = ul_element.find_all('li', role='rowgroup')
+        for li_element in li_elements:
+            dl_elements = li_element.find_all('div', class_='flix-dl', role='row')
+            feature = {}
+            for dl_element in dl_elements:
+                dt_element = dl_element.find('div', class_='flix-dt', role='cell')
+                dd_element = dl_element.find('div', class_='flix-dd', role='cell')
+                if dt_element and dd_element:
+                    feature_name = dt_element.text.strip()
+                    feature_value = dd_element.text.strip()
+                    feature[feature_name] = feature_value
+            features.append(feature)
+    return features
 
 
 def format_attribute(attribute_name, attribute_value):
@@ -75,15 +94,15 @@ def get_product_details(product_link):
     soup = BeautifulSoup(response.content, 'html.parser')
     
     product_title_element = soup.find('h1', class_='product_title entry-title')
-    product_title = product_title_element.text.strip() if product_title_element else "Título del producto no encontrado."
+    product_title = product_title_element.text.strip() if product_title_element else None
+    
+    product_description_elemnt = soup.find('div', class_='woocommerce-product-details__short-description')
+    product_description = product_description_elemnt.text.strip() if product_description_elemnt else None
     
     product_price_element = soup.find('p', class_='price')
-    product_price = product_price_element.find('span', class_='woocommerce-Price-amount amount').text.strip() if product_price_element else "Precio del producto no encontrado."
+    product_price = product_price_element.find('span', class_='woocommerce-Price-amount amount').text.strip() if product_price_element else None
     
     product_attributes = []
-    product_dimensions = []
-    product_features = []
-    product_benefits = []
     product_brand = ""  # Initialize the brand
     product_sku = ""  # Initialize the SKU
     
@@ -106,7 +125,7 @@ def get_product_details(product_link):
     model_pattern = r'[A-Z0-9/-]+'
     model_matches = re.findall(model_pattern, product_title)
     valid_models = [match for match in model_matches if re.search(r'[A-Z]', match) and re.search(r'\d', match)]
-    product_model = valid_models[-1] if valid_models else "Modelo no encontrado"
+    product_model = valid_models[-1] if valid_models else None
     
     
     description_element = soup.find('div', class_='woocommerce-Tabs-panel--description')
@@ -119,15 +138,8 @@ def get_product_details(product_link):
                 if len(columns) == 2:
                     attribute_name = columns[0].text.strip()
                     attribute_value_element = columns[1]
-                    if attribute_name == "Dimensiones":
-                        product_dimensions = extract_dimension_values(attribute_value_element)
-                    elif attribute_name == "Características":
-                        product_features = extract_feature_value(attribute_value_element)
-                    elif attribute_name == "Beneficios":
-                        product_benefits = extract_feature_value(attribute_value_element)
-                    else:
-                        attribute_value = extract_attribute_value(attribute_value_element)
-                        formatted_attribute = format_attribute(attribute_name, attribute_value)
-                        product_attributes.append(formatted_attribute)
+                    attribute_value = extract_attribute_value(attribute_value_element)
+                    formatted_attribute = format_attribute(attribute_name, attribute_value)
+                    product_attributes.append(formatted_attribute)
     
-    return product_title, product_price, product_attributes, product_dimensions, product_features, product_benefits, product_brand, product_sku, product_model
+    return product_title, product_price, product_attributes, product_brand, product_sku, product_model, product_description

@@ -9,17 +9,15 @@ def main():
     for categoria in categorias:
         product_links = get_product_links(categoria['url'])
         for link in product_links:
-            product_title, product_price, product_attributes, product_dimensions, product_features, product_benefits, product_brand, product_sku, product_model = get_product_details(link)
+            product_title, product_price, product_attributes, product_brand, product_sku, product_model, product_description = get_product_details(link)
             product_info = {
                 "Título del Producto": product_title,
+                "Descripción del Producto": product_description,
                 "Marca": product_brand,
                 "SKU": product_sku,
                 "Modelo": product_model,
                 "Precio del Producto": product_price,
                 "Atributos": product_attributes,
-                "Dimensiones": product_dimensions,
-                "Características": product_features,
-                "Beneficios": product_benefits,
                 "CategoryKey": categoria['cat_key'],  # Agregar el campo CategoryKey
             }
             insert_mongo_data(panamericana, product_info)
